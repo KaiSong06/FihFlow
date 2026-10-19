@@ -12,14 +12,18 @@ APP_EXECUTABLE_TARGET := $(subst $(space),\ ,$(APP_EXECUTABLE))
 
 SOURCES = $(shell find Sources -name '*.swift' -type f | LC_ALL=C sort)
 TEST_RUNNER = $(BUILD_DIR)/FreeFlowTests
+TEST_DISPATCH_HARNESS = $(BUILD_DIR)/AppTextInsertionDispatchHarness.swift
 TEST_PRODUCTION_SOURCES = \
 	Sources/APIConfigurationDraft.swift \
 	Sources/AppContextService.swift \
 	Sources/AppName.swift \
+	Sources/AppTextInsertionCore.swift \
+	Sources/AppTextInsertionTarget.swift \
 	Sources/ContextInferenceFailure.swift \
 	Sources/LLMAPITransport.swift \
 	Sources/LLMCooldownManager.swift \
 	Sources/ModelConfiguration.swift \
+	Sources/OriginalFieldInsertionPreference.swift \
 	Sources/PostProcessingService.swift \
 	Sources/RecordingCaptureTiming.swift \
 	Sources/RecordingTimerPreference.swift \
@@ -102,7 +106,11 @@ typecheck:
 		-target $(ARCH)-apple-macosx13.0 \
 		$(SOURCES)
 
-test:
+$(TEST_DISPATCH_HARNESS): Sources/AppState.swift Tests/generate-insertion-dispatch-harness.rb
+	@mkdir -p "$(BUILD_DIR)"
+	ruby Tests/generate-insertion-dispatch-harness.rb $< "$@"
+
+test: $(TEST_DISPATCH_HARNESS)
 	@mkdir -p "$(BUILD_DIR)"
 	swiftc \
 		-parse-as-library \
@@ -111,7 +119,8 @@ test:
 		-sdk $(shell xcrun --show-sdk-path) \
 		-target $(ARCH)-apple-macosx13.0 \
 		$(TEST_PRODUCTION_SOURCES) \
-		$(TEST_SOURCES)
+		$(TEST_SOURCES) \
+		"$(TEST_DISPATCH_HARNESS)"
 	@$(TEST_RUNNER)
 
 validate:

@@ -722,6 +722,9 @@ struct GeneralSettingsView: View {
                 SettingsCard("Cleanup", icon: "sparkles") {
                     cleanupSection
                 }
+                SettingsCard("Text insertion", icon: "text.cursor") {
+                    textInsertionSection
+                }
                 SettingsCard("Clipboard", icon: "doc.on.clipboard") {
                     clipboardSection
                 }
@@ -1282,6 +1285,27 @@ struct GeneralSettingsView: View {
         }
     }
 
+    // MARK: Text insertion
+
+    private var textInsertionSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Toggle("Insert into the original field", isOn: $appState.originalFieldInsertionEnabled)
+
+            Text("Keep dictation in the field where recording began, even after switching apps. Off by default; applies to new dictations. Pasting or pressing Return may briefly bring the original app forward, then restore your previous focus when possible.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Divider()
+                .padding(.vertical, 2)
+
+            Toggle("Say \"press enter\" to submit after paste", isOn: $appState.isPressEnterVoiceCommandEnabled)
+
+            Text("When the transcription ends with \"press enter\", \(AppName.displayName) removes those words before cleanup, pastes the remaining transcript, then presses Return.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     // MARK: Clipboard
 
     private var clipboardSection: some View {
@@ -1298,15 +1322,6 @@ struct GeneralSettingsView: View {
             Toggle("Keep dictations in clipboard history", isOn: $appState.keepDictationInClipboardHistory)
 
             Text("When on, your clipboard manager (Paste, Raycast, Maccy, etc.) records each dictation so you can find it in your recent history. When off, \(AppName.displayName) marks dictations transient and your clipboard manager skips them.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Divider()
-                .padding(.vertical, 2)
-
-            Toggle("Say \"press enter\" to submit after paste", isOn: $appState.isPressEnterVoiceCommandEnabled)
-
-            Text("When the transcription ends with \"press enter\", \(AppName.displayName) removes those words before cleanup, pastes the remaining transcript, then presses Return.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
