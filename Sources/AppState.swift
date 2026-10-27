@@ -320,6 +320,39 @@ final class AppState: ObservableObject, @unchecked Sendable {
         }
     }
 
+    @Published var usesLocalTranscription = UserDefaults.standard.bool(forKey: "local_cohere_enabled") {
+        didSet {
+            UserDefaults.standard.set(usesLocalTranscription, forKey: "local_cohere_enabled")
+            if usesLocalTranscription { tearDownRealtimeService() }
+        }
+    }
+    @Published var localCohereModelPath = UserDefaults.standard.string(forKey: "local_cohere_model_path") ?? LocalCohereConfiguration.defaultModelPath {
+        didSet { UserDefaults.standard.set(localCohereModelPath, forKey: "local_cohere_model_path") }
+    }
+    @Published var localCoherePythonPath = UserDefaults.standard.string(forKey: "local_cohere_python_path") ?? LocalCohereConfiguration.defaultPythonPath {
+        didSet { UserDefaults.standard.set(localCoherePythonPath, forKey: "local_cohere_python_path") }
+    }
+    @Published var appContextEnabled = UserDefaults.standard.object(forKey: "app_context_enabled") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(appContextEnabled, forKey: "app_context_enabled")
+            if !appContextEnabled {
+                contextCaptureTask?.cancel()
+                contextCaptureTask = nil
+                capturedContext = nil
+            }
+        }
+    }
+
+    func useLocalCohereWithOpenAI() {
+        usesLocalTranscription = true
+        realtimeStreamingEnabled = false
+        transcriptionLanguage = "en"
+        postProcessingModel = "gpt-4.1-mini"
+        postProcessingFallbackModel = "gpt-4.1-mini"
+        contextModel = "gpt-4.1-mini"
+        appContextEnabled = false
+    }
+
     // Publish only after the complete configuration transaction has persisted.
     @Published private(set) var committedAPIConfiguration: ValidatedAPIConfiguration
 
@@ -1113,7 +1146,10 @@ final class AppState: ObservableObject, @unchecked Sendable {
             apiKey: resolvedTranscriptionAPIKey,
             baseURL: resolvedTranscriptionBaseURL,
             transcriptionModel: transcriptionModel,
-            language: resolvedTranscriptionLanguage
+            language: resolvedTranscriptionLanguage,
+            localConfiguration: usesLocalTranscription ? LocalCohereConfiguration(
+                pythonPath: localCoherePythonPath, modelPath: localCohereModelPath
+            ) : nil
         )
     }
 
@@ -1254,7 +1290,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
             return
         }
 
-        let restoredContext = AppContext(
+        let restoredContext = appContextEnabled ? AppContext(
             appName: nil,
             bundleIdentifier: nil,
             windowTitle: nil,
@@ -1265,7 +1301,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
             screenshotDataURL: item.contextScreenshotDataURL,
             screenshotMimeType: item.contextScreenshotDataURL != nil ? "image/jpeg" : nil,
             screenshotError: nil
-        )
+        ) : .empty
 
         let postProcessingService = PostProcessingService(
             apiKey: apiKey,
@@ -2809,7 +2845,9 @@ final class AppState: ObservableObject, @unchecked Sendable {
                         }
                     }
                     let appContext: AppContext
-                    if let sessionContext {
+                    if !self.appContextEnabled {
+                        appContext = .empty
+                    } else if let sessionContext {
                         appContext = sessionContext
                     } else if let inFlightContext = await inFlightContextTask?.value {
                         appContext = inFlightContext
@@ -2932,7 +2970,9 @@ final class AppState: ObservableObject, @unchecked Sendable {
                     }
                 } catch {
                     let resolvedContext: AppContext
-                    if let sessionContext {
+                    if !self.appContextEnabled {
+                        resolvedContext = .empty
+                    } else if let sessionContext {
                         resolvedContext = sessionContext
                     } else if let inFlightContext = await inFlightContextTask?.value {
                         resolvedContext = inFlightContext
@@ -3026,7 +3066,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
     }
 
     private func startRealtimeStreamingIfEnabled() {
-        guard realtimeStreamingEnabled else { return }
+        guard realtimeStreamingEnabled && !usesLocalTranscription else { return }
         let trimmedBase = resolvedTranscriptionBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedBase.isEmpty else {
             os_log(.info, log: recordingLog, "realtime streaming requested but base URL is empty — skipping")
@@ -3060,7 +3100,9 @@ final class AppState: ObservableObject, @unchecked Sendable {
 
     private func startContextCapture() {
         contextCaptureTask?.cancel()
+        contextCaptureTask = nil
         capturedContext = nil
+        guard appContextEnabled else { return }
         lastContextSummary = "Collecting app context..."
         lastPostProcessingStatus = ""
         lastContextScreenshotDataURL = nil
@@ -3069,6 +3111,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
         contextCaptureTask = Task { [weak self] in
             guard let self else { return nil }
             let context = await self.contextService.collectContext()
+            guard !Task.isCancelled && self.appContextEnabled else { return nil }
             await MainActor.run {
                 self.capturedContext = context
                 self.lastContextSummary = context.contextSummary
@@ -3088,6 +3131,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
     }
 
     private func fallbackContextAtStop() -> AppContext {
+        guard appContextEnabled else { return AppContext.empty }
         let frontmostApp = NSWorkspace.shared.frontmostApplication
         let windowTitle = focusedWindowTitle(for: frontmostApp)
         return AppContext(

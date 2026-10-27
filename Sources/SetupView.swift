@@ -104,7 +104,9 @@ struct SetupView: View {
     @StateObject private var testHotkeyHarness = SetupTestHotkeyHarness()
     @AppStorage("use_compact_overlay") private var useCompactOverlay = true
 
-    private let totalSteps: [SetupStep] = SetupStep.allCases
+    private var totalSteps: [SetupStep] {
+        SetupStep.allCases.filter { $0 != .screenRecording || appState.appContextEnabled }
+    }
     private var isCapturingShortcut: Bool {
         isCapturingHoldShortcut || isCapturingToggleShortcut || isCapturingCopyAgainShortcut
     }
@@ -401,17 +403,25 @@ struct SetupView: View {
                     .font(.title)
                     .fontWeight(.bold)
 
-                Text("Enter an API key for your OpenAI-compatible provider. If you are not using Groq, expand the advanced provider settings and enter that provider's base URL and model IDs before continuing.")
+                Text("Use local Cohere for speech recognition and OpenAI for text cleanup, or configure another provider in Advanced Provider Settings.")
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 VStack(alignment: .leading, spacing: 10) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Using Groq?")
+                        Button("Use Local Cohere + OpenAI") {
+                            apiDraft.baseURL = "https://api.openai.com/v1"
+                            apiDraft.transcriptionAPIURL = ""
+                            apiDraft.transcriptionAPIKey = ""
+                            appState.useLocalCohereWithOpenAI()
+                        }
+                        Text(appState.usesLocalTranscription ? "OpenAI cleanup" : "Using Groq?")
                             .font(.subheadline.weight(.semibold))
                         VStack(alignment: .leading, spacing: 2) {
-                            instructionRow(number: "1", text: "Go to [console.groq.com/keys](https://console.groq.com/keys)")
+                            instructionRow(number: "1", text: appState.usesLocalTranscription
+                                           ? "Create a key at [platform.openai.com/api-keys](https://platform.openai.com/api-keys)"
+                                           : "Go to [console.groq.com/keys](https://console.groq.com/keys)")
                             instructionRow(number: "2", text: "Create a free account (if you don't have one)")
                             instructionRow(number: "3", text: "Click **Create API Key** and copy it")
                         }
@@ -1146,7 +1156,8 @@ struct SetupView: View {
                 apiKey: submission.configuration.apiKey,
                 baseURL: submission.configuration.baseURL,
                 transcriptionAPIURL: submission.configuration.transcriptionAPIURL,
-                transcriptionAPIKey: submission.configuration.transcriptionAPIKey
+                transcriptionAPIKey: submission.configuration.transcriptionAPIKey,
+                usesLocalTranscription: appState.usesLocalTranscription
             ) { configuration in
                 if apiDraft.accept(configuration, for: submission) {
                     accepted = configuration
@@ -1179,13 +1190,11 @@ struct SetupView: View {
     }
 
     private func previousStep(_ step: SetupStep) -> SetupStep {
-        let previous = SetupStep(rawValue: step.rawValue - 1)
-        return previous ?? .welcome
+        totalSteps.last { $0.rawValue < step.rawValue } ?? .welcome
     }
 
     private func nextStep(_ step: SetupStep) -> SetupStep {
-        let next = SetupStep(rawValue: step.rawValue + 1)
-        return next ?? .ready
+        totalSteps.first { $0.rawValue > step.rawValue } ?? .ready
     }
 
     func checkMicPermission() {
