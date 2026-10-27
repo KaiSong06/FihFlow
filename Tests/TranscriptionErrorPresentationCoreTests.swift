@@ -4,6 +4,10 @@ enum TranscriptionErrorPresentationCoreTests {
     static func run() {
         testConnectionLostOffersRetryAndNetworkGuidance()
         testOfflineFailuresRemainClassifiedAsNoInternet()
+        TestSupport.expectEqual(
+            TranscriptionErrorPresentationCore.message(for: LocalCohereError.timedOut(120), isOnline: false),
+            LocalCohereError.timedOut(120).localizedDescription
+        )
     }
 
     private static func testConnectionLostOffersRetryAndNetworkGuidance() {

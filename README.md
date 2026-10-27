@@ -1,3 +1,11 @@
+# FihFlow
+
+This fork adds **local Cohere Transcribe on Apple Silicon**, reusing an existing
+Superwhisper MLX model download, with **OpenAI for text cleanup**.
+
+See [Local Cohere setup](docs/local-cohere.md) to install the runtime, build
+FihFlow, and configure your OpenAI key. The original FreeFlow documentation follows.
+
 <p align="center">
   <img src="Resources/AppIcon-Source.png" width="128" height="128" alt="FreeFlow icon">
 </p>

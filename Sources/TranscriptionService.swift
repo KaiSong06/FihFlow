@@ -19,6 +19,7 @@ enum APIConfigurationSaveFlow {
         baseURL: String,
         transcriptionAPIURL: String,
         transcriptionAPIKey: String,
+        usesLocalTranscription: Bool = false,
         validator: @escaping @Sendable (String, String) async -> Bool = { key, url in
             await TranscriptionService.validateAPIKey(key, baseURL: url)
         },
@@ -32,7 +33,7 @@ enum APIConfigurationSaveFlow {
         let effectiveTranscriptionURL = trimmedTranscriptionURL.isEmpty ? resolvedBaseURL : trimmedTranscriptionURL
         let effectiveTranscriptionKey = trimmedTranscriptionKey.isEmpty ? key : trimmedTranscriptionKey
         guard await validator(key, resolvedBaseURL) else { return false }
-        if effectiveTranscriptionURL != resolvedBaseURL || effectiveTranscriptionKey != key {
+        if !usesLocalTranscription && (effectiveTranscriptionURL != resolvedBaseURL || effectiveTranscriptionKey != key) {
             guard await validator(effectiveTranscriptionKey, effectiveTranscriptionURL) else { return false }
         }
         apply(ValidatedAPIConfiguration(
@@ -60,22 +61,26 @@ class TranscriptionService {
     private let baseURL: URL
     private let transcriptionModel: String
     private let language: String?
+    private let localConfiguration: LocalCohereConfiguration?
     private var transcriptionResponseFormat: String {
         Self.responseFormat(forModel: transcriptionModel)
     }
     private var transcriptionTimeoutSeconds: TimeInterval {
         let override = UserDefaults.standard.double(forKey: "transcription_timeout_seconds")
-        return override > 0 ? override : 20
+        return override > 0 ? override : (localConfiguration == nil ? 20 : 120)
     }
 
     init(
         apiKey: String,
         baseURL: String = "https://api.groq.com/openai/v1",
         transcriptionModel: String = "whisper-large-v3",
-        language: String? = nil
+        language: String? = nil,
+        localConfiguration: LocalCohereConfiguration? = nil
     ) throws {
         self.apiKey = apiKey
-        self.baseURL = try Self.normalizedBaseURL(from: baseURL)
+        self.localConfiguration = localConfiguration
+        // Local inference does not depend on a valid cloud transcription URL.
+        self.baseURL = try Self.normalizedBaseURL(from: localConfiguration == nil ? baseURL : APIConfigurationSaveFlow.defaultBaseURL)
         let trimmedModel = transcriptionModel.trimmingCharacters(in: .whitespacesAndNewlines)
         self.transcriptionModel = trimmedModel.isEmpty ? "whisper-large-v3" : trimmedModel
         let trimmedLanguage = language?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -119,6 +124,9 @@ class TranscriptionService {
         }
 
         let timeoutSeconds = transcriptionTimeoutSeconds
+        let timeoutError: Error = localConfiguration == nil
+            ? TranscriptionError.transcriptionTimedOut(timeoutSeconds)
+            : LocalCohereError.timedOut(timeoutSeconds)
         let raceState = TranscriptionTimeoutRaceState()
 
         return try await withTaskCancellationHandler {
@@ -143,7 +151,7 @@ class TranscriptionService {
                 let timeoutTask = Task {
                     do {
                         try await Task.sleep(nanoseconds: UInt64(timeoutSeconds * 1_000_000_000))
-                        raceState.finish(.failure(TranscriptionError.transcriptionTimedOut(timeoutSeconds)))
+                        raceState.finish(.failure(timeoutError))
                     } catch is CancellationError {
                     } catch {
                         raceState.finish(.failure(error))
@@ -159,6 +167,11 @@ class TranscriptionService {
 
     // Send audio file for transcription and return text
     private func transcribeAudio(fileURL: URL) async throws -> String {
+        if let localConfiguration {
+            return try await LocalCohereTranscriber.shared.transcribe(
+                fileURL: fileURL, configuration: localConfiguration, language: language
+            )
+        }
         return try await transcribeAudioWithURLSession(fileURL: fileURL)
     }
 

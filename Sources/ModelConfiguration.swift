@@ -36,6 +36,7 @@ public struct ModelConfiguration {
     }
 
     public static let llmModels = [
+        "gpt-4.1-mini",
         "openai/gpt-oss-20b",
         "openai/gpt-oss-120b",
         "openai/gpt-oss-safeguard-20b",
@@ -46,6 +47,7 @@ public struct ModelConfiguration {
 
     /// Models that accept image input. The context model must support vision for screenshot analysis to work.
     public static let visionModels = [
+        "gpt-4.1-mini",
         "qwen/qwen3.8-27b"
     ]
 
