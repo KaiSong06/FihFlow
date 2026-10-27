@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MenuBarView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var meetings: MeetingManager
     @ObservedObject private var updateManager = UpdateManager.shared
 
     private var appVersion: String {
@@ -53,6 +54,15 @@ struct MenuBarView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 4)
+
+            Divider()
+
+            Button(meetings.isRecording ? "Meeting recording…" : "Meeting Notes…") {
+                NotificationCenter.default.post(name: .showMeetings, object: nil)
+            }
+            if meetings.isRecording {
+                Button("Finish meeting & create notes") { meetings.finish() }
+            }
 
             Divider()
 

@@ -23,6 +23,10 @@ TEST_PRODUCTION_SOURCES = \
 	Sources/LLMAPITransport.swift \
 	Sources/LLMCooldownManager.swift \
 	Sources/LocalCohereTranscriber.swift \
+	Sources/MeetingCore.swift \
+	Sources/MeetingAudioCapture.swift \
+	Sources/MeetingSummaryService.swift \
+	Sources/MeetingTranscriber.swift \
 	Sources/ModelConfiguration.swift \
 	Sources/OriginalFieldInsertionPreference.swift \
 	Sources/PostProcessingService.swift \
@@ -57,7 +61,7 @@ endif
 
 all: $(APP_EXECUTABLE_TARGET)
 
-$(APP_EXECUTABLE_TARGET): $(SOURCES) Info.plist $(ICON_ICNS) Resources/local_cohere_worker.py
+$(APP_EXECUTABLE_TARGET): $(SOURCES) Info.plist $(ICON_ICNS) Resources/local_cohere_worker.py Resources/meeting_worker.py
 	@mkdir -p "$(MACOS_DIR)" "$(RESOURCES)"
 ifeq ($(ARCH),universal)
 	swiftc \
@@ -91,6 +95,7 @@ endif
 	@plutil -replace CFBundleIdentifier -string "$(BUNDLE_ID)" "$(CONTENTS)/Info.plist"
 	@cp $(ICON_ICNS) "$(RESOURCES)/AppIcon.icns"
 	@cp Resources/local_cohere_worker.py "$(RESOURCES)/local_cohere_worker.py"
+	@cp Resources/meeting_worker.py "$(RESOURCES)/meeting_worker.py"
 	@plutil -replace NSMicrophoneUsageDescription -string "$(APP_NAME) needs microphone access to transcribe your speech." "$(CONTENTS)/Info.plist"
 	@plutil -replace NSSpeechRecognitionUsageDescription -string "$(APP_NAME) needs speech recognition to convert your voice to text." "$(CONTENTS)/Info.plist"
 	@plutil -replace NSAccessibilityUsageDescription -string "$(APP_NAME) needs accessibility access to detect the text cursor position and paste transcribed text." "$(CONTENTS)/Info.plist"
@@ -101,7 +106,7 @@ check: typecheck test validate test-local-cohere
 
 .PHONY: test-local-cohere
 test-local-cohere:
-	python3 -m unittest discover -s Tests -p 'test_local_cohere_worker.py'
+	python3 -m unittest discover -s Tests -p 'test_*.py'
 
 typecheck:
 	swiftc \
