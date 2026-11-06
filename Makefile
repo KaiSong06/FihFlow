@@ -28,6 +28,7 @@ TEST_PRODUCTION_SOURCES = \
 	Sources/MeetingSummaryService.swift \
 	Sources/MeetingTranscriber.swift \
 	Sources/ModelConfiguration.swift \
+	Sources/NotchActivityProtocol.swift \
 	Sources/OriginalFieldInsertionPreference.swift \
 	Sources/PostProcessingService.swift \
 	Sources/RecordingCaptureTiming.swift \
@@ -102,7 +103,13 @@ endif
 	@codesign --force --options runtime --sign "$(CODESIGN_IDENTITY)" --entitlements FreeFlow.entitlements "$(APP_BUNDLE)"
 	@echo "Built $(APP_BUNDLE)"
 
-check: typecheck test validate test-local-cohere
+check: typecheck test validate test-local-cohere check-boring-notch
+
+.PHONY: check-boring-notch
+check-boring-notch:
+	swiftc -typecheck -warnings-as-errors \
+		-sdk $(shell xcrun --show-sdk-path) -target $(ARCH)-apple-macosx14.0 \
+		Sources/NotchActivityProtocol.swift integrations/boring-notch/FihFlowActivity.swift
 
 .PHONY: test-local-cohere
 test-local-cohere:

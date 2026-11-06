@@ -652,6 +652,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
     private var accessibilityTimer: Timer?
     private var audioLevelCancellable: AnyCancellable?
     private var debugOverlayTimer: Timer?
+    private var debugOverlayPreviewID: UUID?
     private var recordingInitializationTimer: DispatchSourceTimer?
     private var transcriptionTask: Task<Void, Never>?
     private var transcribingAudioFileName: String?
@@ -876,7 +877,11 @@ final class AppState: ObservableObject, @unchecked Sendable {
 
         overlayManager.onStopButtonPressed = { [weak self] in
             DispatchQueue.main.async {
-                self?.handleOverlayStopButtonPressed()
+                if self?.isDebugOverlayActive == true {
+                    self?.stopDebugOverlay()
+                } else {
+                    self?.handleOverlayStopButtonPressed()
+                }
             }
         }
         overlayManager.onUpdateOverlayPressed = { [weak self] in
@@ -2114,6 +2119,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
         let t0 = CFAbsoluteTimeGetCurrent()
         os_log(.info, log: recordingLog, "startRecording() entered")
         guard !isRecording && !isTranscribing && !meetingActive else { return }
+        if isDebugOverlayActive { stopDebugOverlay() }
         let scheduledSelectionSnapshot = pendingSelectionSnapshot
         let selectionSnapshot = scheduledSelectionSnapshot
             ?? contextService.collectSelectionSnapshot(captureInsertionTarget: originalFieldInsertionEnabled)
@@ -3273,10 +3279,11 @@ final class AppState: ObservableObject, @unchecked Sendable {
         }
     }
 
-    private func startDebugOverlay() {
+    private func startDebugOverlay(mode: RecordingTriggerMode = .hold) {
         isDebugOverlayActive = true
         clearPendingOverlayDismissToken()
         overlayManager.showRecording(
+            mode: mode,
             showsRecordingTimer:
                 RecordingTimerPreference.load(from: .standard)
         )
@@ -3294,7 +3301,30 @@ final class AppState: ObservableObject, @unchecked Sendable {
         }
     }
 
+    /// Exercise both states without recording audio or making an AI request.
+    func previewOverlayAnimation() {
+        guard !isRecording && !isTranscribing else { return }
+        if isDebugOverlayActive {
+            stopDebugOverlay()
+            return
+        }
+        startDebugOverlay(mode: .toggle)
+        let id = UUID()
+        debugOverlayPreviewID = id
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            guard let self, self.debugOverlayPreviewID == id else { return }
+            self.debugOverlayTimer?.invalidate()
+            self.debugOverlayTimer = nil
+            self.overlayManager.showTranscribing()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
+            guard let self, self.debugOverlayPreviewID == id else { return }
+            self.stopDebugOverlay()
+        }
+    }
+
     private func stopDebugOverlay() {
+        debugOverlayPreviewID = nil
         debugOverlayTimer?.invalidate()
         debugOverlayTimer = nil
         isDebugOverlayActive = false

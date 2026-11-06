@@ -549,6 +549,7 @@ struct GeneralSettingsView: View {
     @AppStorage("show_menu_bar_icon") private var showMenuBarIcon = true
     @AppStorage("overlay_display_id") private var overlayDisplayID = 0
     @AppStorage("use_compact_overlay") private var useCompactOverlay = true
+    @AppStorage("use_boring_notch") private var useBoringNotch = false
     @AppStorage(RecordingTimerPreference.storageKey) private var showRecordingTimer = RecordingTimerPreference.defaultEnabled
     @State private var screensVersion = 0
     @State private var apiDraft = APIConfigurationDraft()
@@ -1156,6 +1157,17 @@ struct GeneralSettingsView: View {
 
     private var overlaySection: some View {
         VStack(alignment: .leading, spacing: 12) {
+            Toggle("Show dictation in Boring Notch", isOn: $useBoringNotch)
+                .disabled(appState.isRecording || appState.isTranscribing || appState.isDebugOverlayActive)
+            Text("Requires the FihFlow-enabled Boring Notch build. Shows a listening waveform and processing animation inside your notch. Only status and audio level are shared locally. If Boring Notch is unavailable, the overlay below is used.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button(appState.isDebugOverlayActive ? "Stop animation preview" : "Preview animation") {
+                appState.previewOverlayAnimation()
+            }
+            .disabled(appState.isRecording || appState.isTranscribing)
+
+            Divider()
             OverlayStyleOptionRow(
                 title: "Minimalist menu-bar overlay",
                 subtitle: "Two slim wings flank the camera notch and stay inside the menu bar. Never covers app tabs or toolbars.",
