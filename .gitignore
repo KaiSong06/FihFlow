@@ -3,3 +3,5 @@ build/
 *.swp
 .env
 .build
+.local-ai/
+__pycache__/

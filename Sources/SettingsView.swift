@@ -144,6 +144,21 @@ struct ProviderSettingsFields: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            Button("Use Local Cohere + OpenAI") {
+                apiBaseURLInput = "https://api.openai.com/v1"
+                transcriptionAPIURLInput = ""
+                transcriptionAPIKeyInput = ""
+                appState.useLocalCohereWithOpenAI()
+            }
+            Text("Runs Cohere on this Mac and uses gpt-4.1-mini for cleanup. Enter your OpenAI API key and save the provider settings. App context is off for this preset.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Toggle("Use local Cohere transcription", isOn: $appState.usesLocalTranscription)
+            if appState.usesLocalTranscription {
+                LocalCohereSettingsFields()
+            }
+
             Text("API Base URL")
                 .font(.caption.weight(.semibold))
 
@@ -252,6 +267,7 @@ struct ProviderSettingsFields: View {
                     appState.transcriptionModel = AppState.defaultTranscriptionModel
                 }
             )
+            .disabled(appState.usesLocalTranscription)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Transcription Language")
@@ -263,7 +279,9 @@ struct ProviderSettingsFields: View {
                 }
                 .accessibilityLabel("Transcription Language")
                 .labelsHidden()
-                Text("Hint to the transcription model. Auto-detect works for most users. Pick a specific language if you see wrong-script characters (for example Chinese) appear in your output.")
+                Text(appState.usesLocalTranscription
+                     ? "Cohere requires a language. Auto-detect uses English locally. Select the language you will dictate in."
+                     : "Hint to the transcription model. Auto-detect works for most users. Pick a specific language if you see wrong-script characters appear in your output.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -292,6 +310,7 @@ struct ProviderSettingsFields: View {
                     }
                 }
             }
+            .disabled(appState.usesLocalTranscription)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Transcription API Key")
@@ -317,6 +336,7 @@ struct ProviderSettingsFields: View {
                     }
                 }
             }
+            .disabled(appState.usesLocalTranscription)
 
             Divider()
 
@@ -324,7 +344,13 @@ struct ProviderSettingsFields: View {
                 "Stream audio while recording (realtime)",
                 isOn: $appState.realtimeStreamingEnabled
             )
+            .disabled(appState.usesLocalTranscription)
             Text("Streams audio through the provider's OpenAI-compatible /v1/realtime WebSocket so transcription runs while you speak.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Toggle("Use app context for cleanup", isOn: $appState.appContextEnabled)
+            Text("When enabled, app context and screenshots are sent to the cleanup provider. With local Cohere and this option off, only transcript text, vocabulary and any selected Edit Mode text are sent for cleanup.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -971,12 +997,12 @@ struct GeneralSettingsView: View {
 
     private var apiKeySection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("\(AppName.displayName) uses the configured transcription model with your selected OpenAI-compatible provider.")
+            Text("Configure local or cloud transcription and an OpenAI-compatible provider for text cleanup.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 8) {
-                SecureField("Enter your Groq API key", text: $apiDraft.apiKey)
+                SecureField("Enter your cleanup provider API key", text: $apiDraft.apiKey)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                     .disabled(isValidatingKey)
@@ -1034,7 +1060,8 @@ struct GeneralSettingsView: View {
                 apiKey: submission.configuration.apiKey,
                 baseURL: submission.configuration.baseURL,
                 transcriptionAPIURL: submission.configuration.transcriptionAPIURL,
-                transcriptionAPIKey: submission.configuration.transcriptionAPIKey
+                transcriptionAPIKey: submission.configuration.transcriptionAPIKey,
+                usesLocalTranscription: appState.usesLocalTranscription
             ) { configuration in
                 if apiDraft.accept(configuration, for: submission) {
                     accepted = configuration

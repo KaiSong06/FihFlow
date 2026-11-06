@@ -12,6 +12,12 @@ struct AppSelectionSnapshot {
 }
 
 struct AppContext {
+    static let empty = AppContext(
+        appName: nil, bundleIdentifier: nil, windowTitle: nil, selectedText: nil,
+        currentActivity: "", contextSystemPrompt: nil, contextPrompt: nil,
+        screenshotDataURL: nil, screenshotMimeType: nil, screenshotError: nil
+    )
+
     let appName: String?
     let bundleIdentifier: String?
     let windowTitle: String?

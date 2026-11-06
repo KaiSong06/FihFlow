@@ -68,5 +68,23 @@ enum TranscriptionServiceTests {
             validator: { _, _ in true }
         ) { fallbackApplied = $0 }
         TestSupport.expect(fallbackValid && fallbackApplied?.transcriptionAPIURL.isEmpty == true && fallbackApplied?.transcriptionAPIKey.isEmpty == true, "Empty transcription overrides preserve fallback semantics without a partial override")
+
+        let localRecorder = ValidationRequestRecorder()
+        let localValid = await APIConfigurationSaveFlow.validateAndApply(
+            apiKey: "synthetic-openai-key",
+            baseURL: "https://cleanup.invalid/v1",
+            transcriptionAPIURL: "https://unused-transcription.invalid/v1",
+            transcriptionAPIKey: "synthetic-old-key",
+            usesLocalTranscription: true,
+            validator: { key, baseURL in
+                await TranscriptionService.validateAPIKey(key, baseURL: baseURL) { request in
+                    await localRecorder.append(request)
+                    return (Data(), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+                }
+            }
+        ) { _ in }
+        let localRequests = await localRecorder.requests
+        TestSupport.expect(localValid && localRequests.count == 1, "Local transcription only validates the cleanup provider")
+        TestSupport.expectEqual(localRequests.first?.url?.host, "cleanup.invalid")
     }
 }

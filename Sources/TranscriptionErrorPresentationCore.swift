@@ -4,6 +4,7 @@ enum TranscriptionErrorPresentationCore {
     /// Classifies transcription failures by locale-independent error codes
     /// before falling back to the system's localized description.
     static func message(for error: Error, isOnline: Bool) -> String {
+        if let error = error as? LocalCohereError { return error.localizedDescription }
         if let code = urlErrorCode(in: error) {
             switch code {
             case .networkConnectionLost:
