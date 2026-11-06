@@ -28,6 +28,7 @@ TEST_PRODUCTION_SOURCES = \
 	Sources/MeetingSummaryService.swift \
 	Sources/MeetingTranscriber.swift \
 	Sources/ModelConfiguration.swift \
+	Sources/NotchActivityProtocol.swift \
 	Sources/OriginalFieldInsertionPreference.swift \
 	Sources/PostProcessingService.swift \
 	Sources/RecordingCaptureTiming.swift \

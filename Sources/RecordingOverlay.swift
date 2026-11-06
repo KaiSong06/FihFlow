@@ -78,6 +78,15 @@ final class RecordingOverlayManager {
     private var overlayWindow: NSPanel?
     private let overlayState = RecordingOverlayState()
     private var lockedOverlayWidth: CGFloat?
+    private var isPresented = false
+    private lazy var boringNotch: BoringNotchBridge = {
+        let bridge = BoringNotchBridge()
+        bridge.onPresentationChanged = { [weak self] in
+            self?.presentCurrentOverlay(animatedResize: false)
+        }
+        bridge.onStop = { [weak self] in self?.onStopButtonPressed?() }
+        return bridge
+    }()
 
     var onStopButtonPressed: (() -> Void)?
     var onUpdateOverlayPressed: (() -> Void)?
@@ -190,6 +199,7 @@ final class RecordingOverlayManager {
     func updateAudioLevel(_ level: Float) {
         DispatchQueue.main.async {
             self.overlayState.audioLevel = level
+            self.boringNotch.updateLevel(level)
         }
     }
 
@@ -260,6 +270,29 @@ final class RecordingOverlayManager {
     }
 
     private func showOverlayPanel(animatedResize: Bool) {
+        isPresented = true
+        let phase: NotchActivityPacket.Phase
+        switch overlayState.phase {
+        case .initializing: phase = .initializing
+        case .recording: phase = .recording
+        case .transcribing: phase = .processing
+        case .feedback: phase = .error
+        case .updateAvailable:
+            // Keep the existing actionable update reminder in FihFlow.
+            boringNotch.end()
+            presentCurrentOverlay(animatedResize: animatedResize)
+            return
+        }
+        boringNotch.present(phase: phase, canStop: overlayState.phase == .recording && overlayState.recordingTriggerMode == .toggle)
+        presentCurrentOverlay(animatedResize: animatedResize)
+    }
+
+    private func presentCurrentOverlay(animatedResize: Bool) {
+        guard isPresented else { return }
+        if boringNotch.suppressesLocalOverlay {
+            closeLocalPanel()
+            return
+        }
         let frame = overlayFrame
 
         if let panel = overlayWindow {
@@ -293,11 +326,8 @@ final class RecordingOverlayManager {
     }
 
     private func updateOverlayLayout(animated: Bool) {
-        guard let panel = overlayWindow else { return }
-        let frame = overlayFrame
-        panel.ignoresMouseEvents = !overlayAcceptsMouseEvents
-        panel.contentView = makeOverlayContent(frame: frame)
-        resize(panel: panel, to: frame, animated: animated)
+        guard isPresented else { return }
+        showOverlayPanel(animatedResize: animated)
     }
 
     private func setTranscribingPhase() {
@@ -475,10 +505,16 @@ final class RecordingOverlayManager {
     }
 
     private func dismissAll() {
+        isPresented = false
+        boringNotch.end()
         lockedOverlayWidth = nil
         overlayState.recordingStartedAt = nil
         overlayState.isCommandMode = false
         overlayState.updateVersion = ""
+        closeLocalPanel()
+    }
+
+    private func closeLocalPanel() {
         if let panel = overlayWindow {
             panel.orderOut(nil)
             // orderOut alone leaves the panel retained in NSApp.windows with its
