@@ -2,11 +2,15 @@ import SwiftUI
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     let appState = AppState()
+    @MainActor lazy var meetings = MeetingManager(appState: appState)
+    private var meetingsWindow: NSWindow?
     var setupWindow: NSWindow?
     private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NetworkMonitor.shared.start()
+        _ = meetings
+        NotificationCenter.default.addObserver(self, selector: #selector(showMeetingsWindow), name: .showMeetings, object: nil)
 
         NotificationCenter.default.addObserver(
             self,
@@ -83,6 +87,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func handleShowSettings() {
         showSettingsWindow()
+    }
+
+    @MainActor @objc private func showMeetingsWindow() {
+        if meetingsWindow == nil {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1000, height: 760), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+            window.title = "FihFlow — Meeting Notes"
+            window.contentView = NSHostingView(rootView: MeetingNotesView().environmentObject(meetings))
+            window.isReleasedWhenClosed = false
+            window.center()
+            meetingsWindow = window
+        }
+        NSApp.setActivationPolicy(.regular)
+        meetingsWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard meetings.isBusy else { return .terminateNow }
+        showMeetingsWindow()
+        meetings.error = "Finish the recording or cancel processing before quitting."
+        return .terminateCancel
     }
 
     private func showSettingsWindow() {

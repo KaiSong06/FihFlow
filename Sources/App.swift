@@ -10,9 +10,11 @@ struct FreeFlowApp: App {
         MenuBarExtra(isInserted: $showMenuBarIcon) {
             MenuBarView()
                 .environmentObject(appDelegate.appState)
+                .environmentObject(appDelegate.meetings)
         } label: {
             MenuBarLabel()
                 .environmentObject(appDelegate.appState)
+                .environmentObject(appDelegate.meetings)
         }
     }
 }
@@ -20,9 +22,12 @@ struct FreeFlowApp: App {
 @MainActor
 struct MenuBarLabel: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var meetings: MeetingManager
     @ObservedObject var notificationManager = VocabularyNotificationManager.shared
 
     private var iconName: String {
+        if meetings.isRecording { return "record.circle.fill" }
+        if meetings.isBusy { return "ellipsis.circle" }
         if appState.isRecording { return "record.circle" }
         if appState.isTranscribing { return "ellipsis.circle" }
         return "waveform"
@@ -33,7 +38,7 @@ struct MenuBarLabel: View {
             if notificationManager.showCheckmark {
                 Image(systemName: "checkmark")
             }
-            if AppBuild.isDevBundle && !appState.isRecording && !appState.isTranscribing {
+            if AppBuild.isDevBundle && !appState.isRecording && !appState.isTranscribing && !meetings.isBusy {
                 Image(nsImage: StampedMenuBarIcon.templateImage)
                     .renderingMode(.template)
             } else {

@@ -603,6 +603,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
         }
     }
 
+    @Published var meetingActive = false
     @Published var isRecording = false {
         didSet {
             guard oldValue != isRecording else { return }
@@ -2112,7 +2113,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
     private func startRecording(triggerMode: RecordingTriggerMode) {
         let t0 = CFAbsoluteTimeGetCurrent()
         os_log(.info, log: recordingLog, "startRecording() entered")
-        guard !isRecording && !isTranscribing else { return }
+        guard !isRecording && !isTranscribing && !meetingActive else { return }
         let scheduledSelectionSnapshot = pendingSelectionSnapshot
         let selectionSnapshot = scheduledSelectionSnapshot
             ?? contextService.collectSelectionSnapshot(captureInsertionTarget: originalFieldInsertionEnabled)

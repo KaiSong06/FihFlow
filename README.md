@@ -1,5 +1,9 @@
 # FihFlow
 
+**Meeting notes:** capture system audio and microphone on macOS 15+, transcribe
+locally with speaker labels, then generate summaries and your action items using
+the configured OpenAI model. See [Meeting notes setup](docs/meeting-notes.md).
+
 This fork adds **local Cohere Transcribe on Apple Silicon**, reusing an existing
 Superwhisper MLX model download, with **OpenAI for text cleanup**.
 
