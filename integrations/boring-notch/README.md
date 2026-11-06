@@ -54,10 +54,21 @@ off restores the ordinary overlay on the next dictation.
 
 ## Verification
 
-`make check` covers payload validation, privacy field bounds, and receiver lease
-expiry. Before merging, manually verify listening, processing, stop, errors,
-cancel, receiver exit/relaunch, and display changes alongside normal music/HUD
-content. Synthetic preview does not verify microphone capture or transcription.
+`make check` covers payload validation, privacy field bounds, receiver lease
+expiry, and type-checking the receiver. On 2026-11-06, both apps were built and
+signature-verified locally. Cua Driver checks using the synthetic preview passed:
+
+- Listening meter and processing ring render in Boring Notch's own window.
+- FihFlow creates no second panel while the receiver is responding.
+- The notch stop button ends the preview before its automatic timeout.
+- Normal Boring Notch content returns after the preview.
+- An absent receiver restores the FihFlow panel.
+- Quitting the receiver during a preview restores the panel; restarting the
+  receiver during that preview removes the panel and resumes notch presentation.
+
+Still pending before merge: real dictation/stop/cancel/error paths, fullscreen
+and display changes, and coexistence with active music/system HUDs. Synthetic
+preview does not verify microphone capture, permissions, or transcription.
 
 ## Rollback and license
 

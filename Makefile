@@ -103,7 +103,13 @@ endif
 	@codesign --force --options runtime --sign "$(CODESIGN_IDENTITY)" --entitlements FreeFlow.entitlements "$(APP_BUNDLE)"
 	@echo "Built $(APP_BUNDLE)"
 
-check: typecheck test validate test-local-cohere
+check: typecheck test validate test-local-cohere check-boring-notch
+
+.PHONY: check-boring-notch
+check-boring-notch:
+	swiftc -typecheck -warnings-as-errors \
+		-sdk $(shell xcrun --show-sdk-path) -target $(ARCH)-apple-macosx14.0 \
+		Sources/NotchActivityProtocol.swift integrations/boring-notch/FihFlowActivity.swift
 
 .PHONY: test-local-cohere
 test-local-cohere:

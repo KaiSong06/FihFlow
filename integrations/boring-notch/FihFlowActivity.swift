@@ -94,7 +94,7 @@ struct FihFlowNotchActivityView: View {
                 } else if activity.packet?.phase == .update {
                     Image(systemName: "arrow.down.circle").foregroundStyle(.pink)
                 } else {
-                    ProgressView().controlSize(.small).scaleEffect(0.75)
+                    FihFlowProcessingIndicator()
                 }
             }
             .frame(width: 72)
@@ -125,5 +125,20 @@ struct FihFlowNotchActivityView: View {
     private func barHeight(_ index: Int) -> CGFloat {
         let weights = [0.45, 0.8, 1.0, 0.65, 0.35]
         return 3 + 16 * (activity.packet?.level ?? 0) * weights[index]
+    }
+}
+
+private struct FihFlowProcessingIndicator: View {
+    @State private var rotating = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Circle()
+            .trim(from: 0.15, to: 0.9)
+            .stroke(Color.pink, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+            .frame(width: 12, height: 12)
+            .rotationEffect(.degrees(rotating ? 360 : 0))
+            .animation(reduceMotion ? nil : .linear(duration: 0.9).repeatForever(autoreverses: false), value: rotating)
+            .onAppear { rotating = !reduceMotion }
     }
 }
